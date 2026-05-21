@@ -1,192 +1,456 @@
 import 'package:flutter/material.dart';
+import '../../data/data_manager.dart';
+import '../../data/rule_data.dart';
 import '../../models/kerusakan.dart';
+import '../../models/rule.dart';
 
 class DetailKerusakanPage extends StatelessWidget {
   final Kerusakan data;
 
-  const DetailKerusakanPage({super.key, required this.data});
+  const DetailKerusakanPage({
+    super.key,
+    required this.data,
+  });
 
-  @override
-  Widget build(BuildContext context) {
-
-    Color headerColor = getKategoriColor(data.kategori);
-    IconData icon = getKategoriIcon(data.kategori);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Detail Kerusakan"),
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-
-            /// 🔥 HEADER
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: headerColor.withOpacity(0.1),
-              ),
-              child: Column(
-                children: [
-                  Icon(icon, size: 50, color: headerColor),
-
-                  const SizedBox(height: 10),
-
-                  Text(
-                    data.nama,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: headerColor,
-                    ),
-                  ),
-
-                  const SizedBox(height: 6),
-
-                  Text(
-                    data.kategori,
-                    style: TextStyle(color: Colors.grey[700]),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            /// 📄 CONTENT
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-
-                  /// 🔥 DESKRIPSI (SUDAH BENAR)
-                  buildSection("Deskripsi", data.deskripsi),
-
-                  /// 🔥 SOLUSI (FIX ENTER → LIST)
-                  buildSectionNumbered(
-                    "Solusi",
-                    data.solusi
-                        .split('\n')
-                        .where((e) => e.trim().isNotEmpty)
-                        .toList(),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 🔥 ICON
-  IconData getKategoriIcon(String kategori) {
-    switch (kategori) {
-      case "Mesin":
-        return Icons.build;
-      case "Kelistrikan":
-        return Icons.bolt;
-      case "Transmisi":
-        return Icons.settings;
-      case "Rem":
-        return Icons.warning;
-      default:
-        return Icons.device_unknown;
-    }
-  }
-
-  /// 🔥 WARNA
   Color getKategoriColor(String kategori) {
     switch (kategori) {
       case "Mesin":
-        return Colors.red;
+        return const Color(0xFFEF4444);
+
       case "Kelistrikan":
-        return Colors.amber;
+        return const Color(0xFFF59E0B);
+
       case "Transmisi":
-        return Colors.blue;
+        return const Color(0xFF3B82F6);
+
+      case "Penggerak":
+        return const Color(0xFF14B8A6);
+
       case "Rem":
-        return Colors.orange;
+        return const Color(0xFFF97316);
+
       default:
         return Colors.grey;
     }
   }
 
-  /// 🔹 SECTION BULLET (DESKRIPSI)
-  Widget buildSection(String title, List<String> items) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 5)
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title,
-              style: const TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
+  IconData getKategoriIcon(String kategori) {
+    switch (kategori) {
+      case "Mesin":
+        return Icons.build_circle;
 
-          ...items.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      case "Kelistrikan":
+        return Icons.bolt;
+
+      case "Transmisi":
+        return Icons.settings;
+
+      case "Penggerak":
+        return Icons.cyclone;
+
+      case "Rem":
+        return Icons.warning_amber_rounded;
+
+      default:
+        return Icons.device_unknown;
+    }
+  }
+
+  Rule? getRuleByKerusakanId(String kerusakanId) {
+    try {
+      return dataRule.firstWhere(
+        (rule) => rule.kerusakanId == kerusakanId,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String getNamaGejala(String gejalaId) {
+    try {
+      final gejala = DataManager.gejala.firstWhere(
+        (g) => g.id == gejalaId,
+      );
+
+      return gejala.nama;
+    } catch (_) {
+      return "Gejala tidak ditemukan";
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = getKategoriColor(data.kategori);
+    final icon = getKategoriIcon(data.kategori);
+
+    final Rule? rule =
+        getRuleByKerusakanId(data.id);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+
+      body: CustomScrollView(
+        slivers: [
+          /// APPBAR
+          SliverAppBar(
+            expandedHeight: 240,
+            pinned: true,
+            backgroundColor: color,
+
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      color,
+                      color.withOpacity(0.75),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisAlignment:
+                          MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 90,
+                          height: 90,
+                          decoration: BoxDecoration(
+                            color: Colors.white
+                                .withOpacity(0.18),
+                            borderRadius:
+                                BorderRadius.circular(26),
+                          ),
+                          child: Icon(
+                            icon,
+                            color: Colors.white,
+                            size: 48,
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        Text(
+                          data.nama,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        Container(
+                          padding:
+                              const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white
+                                .withOpacity(0.18),
+                            borderRadius:
+                                BorderRadius.circular(14),
+                          ),
+                          child: Text(
+                            data.kategori,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          /// CONTENT
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+
+              child: Column(
                 children: [
-                  const Text("• "),
-                  Expanded(child: Text(item)),
+                  buildCard(
+                    title: "Deskripsi",
+                    icon: Icons.description_outlined,
+                    color: color,
+                    child: Column(
+                      children: data.deskripsi
+                          .map(
+                            (item) => buildBullet(item),
+                          )
+                          .toList(),
+                    ),
+                  ),
+
+                  buildGejalaCard(
+                    rule: rule,
+                    color: color,
+                  ),
+
+                  buildCard(
+                    title: "Saran Perbaikan",
+                    icon: Icons.build_outlined,
+                    color: color,
+                    child: Column(
+                      children: data.solusi
+                          .split('\n')
+                          .where(
+                            (e) =>
+                                e.trim().isNotEmpty,
+                          )
+                          .toList()
+                          .asMap()
+                          .entries
+                          .map(
+                        (entry) {
+                          final i = entry.key + 1;
+
+                          return Padding(
+                            padding:
+                                const EdgeInsets.only(
+                              bottom: 10,
+                            ),
+                            child: Row(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment
+                                      .start,
+                              children: [
+                                Container(
+                                  width: 26,
+                                  height: 26,
+                                  alignment:
+                                      Alignment.center,
+                                  decoration:
+                                      BoxDecoration(
+                                    color: color
+                                        .withOpacity(0.12),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Text(
+                                    "$i",
+                                    style: TextStyle(
+                                      color: color,
+                                      fontWeight:
+                                          FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+
+                                const SizedBox(width: 12),
+
+                                Expanded(
+                                  child: Text(
+                                    entry.value,
+                                    style:
+                                        const TextStyle(
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ).toList(),
+                    ),
+                  ),
                 ],
               ),
             ),
-          )
+          ),
         ],
       ),
     );
   }
 
-  /// 🔥 SECTION NOMOR (SOLUSI)
-  Widget buildSectionNumbered(String title, List<String> items) {
+  Widget buildCard({
+    required String title,
+    required IconData icon,
+    required Color color,
+    required Widget child,
+  }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+
+      margin: const EdgeInsets.only(bottom: 18),
+
+      padding: const EdgeInsets.all(20),
+
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 5)
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
         ],
       ),
+
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
         children: [
-          Text(title,
-              style: const TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-
-          ...items.asMap().entries.map(
-            (entry) {
-              int i = entry.key + 1;
-              String item = entry.value;
-
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("$i. "),
-                    Expanded(child: Text(item)),
-                  ],
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.12),
+                  borderRadius:
+                      BorderRadius.circular(14),
                 ),
-              );
-            },
-          )
+                child: Icon(
+                  icon,
+                  color: color,
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 18),
+
+          child,
         ],
       ),
+    );
+  }
+
+  Widget buildBullet(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+
+      child: Row(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          const Text("• "),
+
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildGejalaCard({
+    required Rule? rule,
+    required Color color,
+  }) {
+    final gejalaRules =
+        rule?.gejalaRules ?? [];
+
+    return buildCard(
+      title: "Gejala Terkait",
+      icon: Icons.medical_information_outlined,
+      color: color,
+
+      child: gejalaRules.isEmpty
+          ? Text(
+              "Belum ada gejala terkait.",
+              style: TextStyle(
+                color: Colors.grey[600],
+              ),
+            )
+          : Column(
+              children: gejalaRules.map((g) {
+                final namaGejala =
+                    getNamaGejala(g.gejalaId);
+
+                return Container(
+                  margin:
+                      const EdgeInsets.only(bottom: 12),
+
+                  padding: const EdgeInsets.all(14),
+
+                  decoration: BoxDecoration(
+                    color:
+                        color.withOpacity(0.06),
+                    borderRadius:
+                        BorderRadius.circular(18),
+                  ),
+
+                  child: Row(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.check_circle,
+                        color: color,
+                        size: 20,
+                      ),
+
+                      const SizedBox(width: 12),
+
+                      Expanded(
+                        child: Text(
+                          namaGejala,
+                          style: const TextStyle(
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+
+                      Container(
+                        padding:
+                            const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                              color.withOpacity(0.12),
+                          borderRadius:
+                              BorderRadius.circular(
+                                  12),
+                        ),
+                        child: Text(
+                          "CF ${g.bobotPakar.toStringAsFixed(1)}",
+                          style: TextStyle(
+                            color: color,
+                            fontWeight:
+                                FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
     );
   }
 }

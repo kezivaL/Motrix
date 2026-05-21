@@ -1,47 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'theme/app_theme.dart';
 import 'pages/dashboard/dashboard_page.dart';
-
 import 'data/data_manager.dart';
-import 'data/kerusakan_data.dart';
-import 'data/symptom_data.dart';
-import 'data/rule_data.dart';
-
-import 'services/storage_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 🔥 LOAD DARI STORAGE
-  DataManager.gejala = await StorageService.loadGejala();
-  DataManager.kerusakan = await StorageService.loadKerusakan();
-  DataManager.rules = await StorageService.loadRule();
+  await Supabase.initialize(
+    url: 'https://nsunwuftxebwktfyzjtm.supabase.co',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5zdW53dWZ0eGVid2t0Znl6anRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMTc2MDAsImV4cCI6MjA5NDg5MzYwMH0.BupOYnRrj0avYgyg73NdiPPOySzJDczfoNJFzFnv2Qg',
+  );
 
-  // 🔥 FALLBACK
-  if (DataManager.gejala.isEmpty) {
-    DataManager.gejala = dataSymptom;
-  }
-
-  if (DataManager.kerusakan.isEmpty) {
-    DataManager.kerusakan = dataKerusakan;
-  }
-
-  if (DataManager.rules.isEmpty) {
-    DataManager.rules = dataRule;
-  }
+  await DataManager.loadAll();
 
   runApp(const MyApp());
 }
 
-// 🔥 HARUS DI LUAR main()
+final supabase = Supabase.instance.client;
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Diagnosa Motor',
+      title: 'Motrix',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       home: const DashboardPage(),
