@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../data/rule_data.dart';
 import '../../../data/data_manager.dart';
 import '../../../models/rule.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -36,8 +35,9 @@ class _KelolaRulePageState extends State<KelolaRulePage> {
       case "Kelistrikan":
         return Colors.amber;
       case "Transmisi":
-      case "Penggerak":
         return Colors.lightBlueAccent;
+      case "Penggerak":
+        return Colors.tealAccent;
       case "Rem":
         return Colors.orangeAccent;
       default:
@@ -52,8 +52,9 @@ class _KelolaRulePageState extends State<KelolaRulePage> {
       case "Kelistrikan":
         return Icons.bolt;
       case "Transmisi":
-      case "Penggerak":
         return Icons.settings;
+      case "Penggerak":
+        return Icons.cyclone;
       case "Rem":
         return Icons.warning_amber_rounded;
       default:
@@ -80,7 +81,7 @@ class _KelolaRulePageState extends State<KelolaRulePage> {
   List<String> getKategoriList() {
     final kategoriSet = <String>{};
 
-    for (final rule in dataRule) {
+    for (final rule in DataManager.rules) {
       final kerusakan = cariKerusakan(rule.kerusakanId);
       if (kerusakan != null) {
         kategoriSet.add(kerusakan.kategori);
@@ -94,7 +95,7 @@ class _KelolaRulePageState extends State<KelolaRulePage> {
   }
 
   List<Rule> getSortedRule() {
-    final sortedRule = List<Rule>.from(dataRule);
+  final sortedRule = List<Rule>.from(DataManager.rules);
 
     sortedRule.sort((a, b) {
       final kA = cariKerusakan(a.kerusakanId);
@@ -742,7 +743,7 @@ class _KelolaRulePageState extends State<KelolaRulePage> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: () {
+                            onPressed: () async {
                               if (selectedKerusakan == null ||
                                   selectedGejala.isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -765,13 +766,28 @@ class _KelolaRulePageState extends State<KelolaRulePage> {
                                 }).toList(),
                               );
 
-                              setState(() {
-                                if (rule == null) {
-                                  dataRule.add(newRule);
+                              final updated = List<Rule>.from(DataManager.rules);
+
+                              if (rule == null) {
+                                final existingIndex = updated.indexWhere(
+                                  (r) => r.kerusakanId == selectedKerusakan,
+                                );
+
+                                if (existingIndex == -1) {
+                                  updated.add(newRule);
                                 } else {
-                                  dataRule[index!] = newRule;
+                                  updated[existingIndex] = newRule;
                                 }
-                              });
+                              } else {
+                                if (index != null && index >= 0 && index < updated.length) {
+                                  updated[index] = newRule;
+                                }
+                              }
+
+                              await DataManager.saveRules(updated);
+
+                              if (!mounted) return;
+                              setState(() {});
 
                               Navigator.pop(context);
                             },
@@ -790,10 +806,15 @@ class _KelolaRulePageState extends State<KelolaRulePage> {
     );
   }
 
-  void hapus(Rule rule) {
-    setState(() {
-      dataRule.remove(rule);
-    });
+  Future<void> hapus(Rule rule) async {
+    final updated = List<Rule>.from(DataManager.rules);
+
+    updated.removeWhere((item) => item.kerusakanId == rule.kerusakanId);
+
+    await DataManager.saveRules(updated);
+
+    if (!mounted) return;
+    setState(() {});
   }
 
   @override
@@ -850,7 +871,9 @@ class _KelolaRulePageState extends State<KelolaRulePage> {
                       itemBuilder: (context, index) {
                         final rule = sortedRule[index];
                         final kerusakan = cariKerusakan(rule.kerusakanId);
-                        final originalIndex = dataRule.indexOf(rule);
+                        final originalIndex = DataManager.rules.indexWhere(
+                        (item) => item.kerusakanId == rule.kerusakanId,
+                      );
 
                         final kategori = kerusakan?.kategori ?? "-";
                         final color = kategoriColor(kategori);

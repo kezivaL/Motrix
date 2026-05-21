@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -13,7 +14,7 @@ import 'session_service.dart';
 class StorageService {
   static final SupabaseClient _supabase = Supabase.instance.client;
 
-  static const Duration _supabaseTimeout = Duration(seconds: 6);
+  static const Duration _supabaseTimeout = Duration(seconds: 10);
 
   // ================= HELPER =================
 
@@ -24,7 +25,10 @@ class StorageService {
     return double.tryParse(value.toString()) ?? fallback;
   }
 
-  static Future<void> _setLocal(String key, List<Map<String, dynamic>> data) async {
+  static Future<void> _setLocal(
+    String key,
+    List<Map<String, dynamic>> data,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(key, jsonEncode(data));
   }
@@ -32,6 +36,7 @@ class StorageService {
   static Future<List<dynamic>> _getLocalList(String key) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(key);
+
     if (raw == null || raw.isEmpty) return [];
 
     final decoded = jsonDecode(raw);
@@ -47,13 +52,31 @@ class StorageService {
   }
 
   static Future<void> saveGejala(List<Symptom> data) async {
-    final jsonData = data.map((e) => e.toJson()).toList();
+    final jsonData = data.map((e) {
+      final json = e.toJson();
+
+      return {
+        'id': json['id'],
+        'nama': json['nama'],
+        'kategori': json['kategori'],
+      };
+    }).toList();
 
     await saveGejalaLocalOnly(data);
 
     try {
-      await _supabase.from('gejala').upsert(jsonData).timeout(_supabaseTimeout);
-    } catch (_) {}
+      await _supabase
+          .from('gejala')
+          .upsert(
+            jsonData,
+            onConflict: 'id',
+          )
+          .timeout(_supabaseTimeout);
+
+      debugPrint('BERHASIL SAVE GEJALA KE SUPABASE: ${jsonData.length} data');
+    } catch (e) {
+      debugPrint('ERROR SAVE GEJALA SUPABASE: $e');
+    }
   }
 
   static Future<List<Symptom>> loadGejala() async {
@@ -70,7 +93,8 @@ class StorageService {
       return decoded.map<Symptom>((e) {
         return Symptom.fromJson(Map<String, dynamic>.from(e));
       }).toList();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('ERROR LOAD GEJALA LOCAL: $e');
       return [];
     }
   }
@@ -92,8 +116,11 @@ class StorageService {
         await saveGejalaLocalOnly(data);
       }
 
+      debugPrint('BERHASIL LOAD GEJALA SUPABASE: ${data.length} data');
+
       return data;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('ERROR LOAD GEJALA SUPABASE: $e');
       return loadGejalaLocal();
     }
   }
@@ -105,16 +132,35 @@ class StorageService {
   }
 
   static Future<void> saveKerusakan(List<Kerusakan> data) async {
-    final jsonData = data.map((e) => e.toJson()).toList();
+    final jsonData = data.map((e) {
+      final json = e.toJson();
+
+      return {
+        'id': json['id'],
+        'nama': json['nama'],
+        'kategori': json['kategori'],
+        'deskripsi': json['deskripsi'],
+        'solusi': json['solusi'],
+      };
+    }).toList();
 
     await saveKerusakanLocalOnly(data);
 
     try {
       await _supabase
           .from('kerusakan')
-          .upsert(jsonData)
+          .upsert(
+            jsonData,
+            onConflict: 'id',
+          )
           .timeout(_supabaseTimeout);
-    } catch (_) {}
+
+      debugPrint(
+        'BERHASIL SAVE KERUSAKAN KE SUPABASE: ${jsonData.length} data',
+      );
+    } catch (e) {
+      debugPrint('ERROR SAVE KERUSAKAN SUPABASE: $e');
+    }
   }
 
   static Future<List<Kerusakan>> loadKerusakan() async {
@@ -131,7 +177,8 @@ class StorageService {
       return decoded.map<Kerusakan>((e) {
         return Kerusakan.fromJson(Map<String, dynamic>.from(e));
       }).toList();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('ERROR LOAD KERUSAKAN LOCAL: $e');
       return [];
     }
   }
@@ -153,8 +200,11 @@ class StorageService {
         await saveKerusakanLocalOnly(data);
       }
 
+      debugPrint('BERHASIL LOAD KERUSAKAN SUPABASE: ${data.length} data');
+
       return data;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('ERROR LOAD KERUSAKAN SUPABASE: $e');
       return loadKerusakanLocal();
     }
   }
@@ -169,11 +219,7 @@ class StorageService {
     await saveRuleLocalOnly(data);
 
     try {
-      await _supabase
-          .from('rules')
-          .delete()
-          .neq('kerusakan_id', '')
-          .timeout(_supabaseTimeout);
+      await _supabase.from('rules').delete().neq('kerusakan_id', '');
 
       final rows = <Map<String, dynamic>>[];
 
@@ -190,7 +236,11 @@ class StorageService {
       if (rows.isNotEmpty) {
         await _supabase.from('rules').insert(rows).timeout(_supabaseTimeout);
       }
-    } catch (_) {}
+
+      debugPrint('BERHASIL SAVE RULE KE SUPABASE: ${rows.length} baris');
+    } catch (e) {
+      debugPrint('ERROR SAVE RULE SUPABASE: $e');
+    }
   }
 
   static Future<List<Rule>> loadRule() async {
@@ -207,7 +257,8 @@ class StorageService {
       return decoded.map<Rule>((e) {
         return Rule.fromJson(Map<String, dynamic>.from(e));
       }).toList();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('ERROR LOAD RULE LOCAL: $e');
       return [];
     }
   }
@@ -251,8 +302,11 @@ class StorageService {
         await saveRuleLocalOnly(data);
       }
 
+      debugPrint('BERHASIL LOAD RULE SUPABASE: ${data.length} rule');
+
       return data;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('ERROR LOAD RULE SUPABASE: $e');
       return loadRuleLocal();
     }
   }
@@ -296,7 +350,11 @@ class StorageService {
             .insert(rows)
             .timeout(_supabaseTimeout);
       }
-    } catch (_) {}
+
+      debugPrint('BERHASIL SAVE RIWAYAT SUPABASE: ${rows.length} data');
+    } catch (e) {
+      debugPrint('ERROR SAVE RIWAYAT SUPABASE: $e');
+    }
   }
 
   static Future<List<Diagnosa>> loadRiwayat() async {
@@ -323,7 +381,8 @@ class StorageService {
           gejalaTerpilih: item.gejalaTerpilih,
         );
       }).toList();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('ERROR LOAD RIWAYAT LOCAL: $e');
       return [];
     }
   }
@@ -353,8 +412,11 @@ class StorageService {
 
       await _setLocal('riwayat', data.map((e) => e.toJson()).toList());
 
+      debugPrint('BERHASIL LOAD RIWAYAT SUPABASE: ${data.length} data');
+
       return data;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('ERROR LOAD RIWAYAT SUPABASE: $e');
       return loadRiwayatLocal();
     }
   }
@@ -388,7 +450,11 @@ class StorageService {
                 diagnosa.gejalaTerpilih.map((e) => e.toJson()).toList(),
           })
           .timeout(_supabaseTimeout);
-    } catch (_) {}
+
+      debugPrint('BERHASIL TAMBAH RIWAYAT SUPABASE');
+    } catch (e) {
+      debugPrint('ERROR TAMBAH RIWAYAT SUPABASE: $e');
+    }
   }
 
   // ================= HAPUS SEMUA =================
@@ -405,6 +471,23 @@ class StorageService {
           .delete()
           .eq('session_id', sessionId)
           .timeout(_supabaseTimeout);
-    } catch (_) {}
+
+      debugPrint('BERHASIL CLEAR RIWAYAT SUPABASE');
+    } catch (e) {
+      debugPrint('ERROR CLEAR RIWAYAT SUPABASE: $e');
+    }
   }
+  static Future<int> countAllRiwayatDiagnosa() async {
+  try {
+    final response = await _supabase
+        .from('riwayat_diagnosa')
+        .select('id')
+        .timeout(_supabaseTimeout);
+
+    return response.length;
+  } catch (e) {
+    debugPrint('ERROR COUNT ALL RIWAYAT DIAGNOSA: $e');
+    return 0;
+  }
+}
 }

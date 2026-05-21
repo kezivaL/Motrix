@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
+
 import 'result_page.dart';
-import '../../data/rule_data.dart';
-import '../../data/kerusakan_data.dart';
 import '../../engine/diagnose_engine.dart';
 import '../../data/data_manager.dart';
 import '../../models/symptom.dart';
@@ -73,7 +72,7 @@ class _DiagnosePageState extends State<DiagnosePage> {
   IconData kategoriIcon(String kategori) {
     switch (kategori) {
       case "Mesin":
-        return Icons.precision_manufacturing_rounded;
+        return Icons.build_circle;
       case "Kelistrikan":
         return Icons.bolt_rounded;
       case "Transmisi":
@@ -391,8 +390,8 @@ class _DiagnosePageState extends State<DiagnosePage> {
     final hasil = DiagnoseEngine.prosesDiagnosa(
       gejalaDipilih: gejalaCfUser.keys.toList(),
       gejalaCfUser: gejalaCfUser,
-      rules: dataRule,
-      kerusakanList: dataKerusakan,
+      rules: DataManager.rules,
+      kerusakanList: DataManager.kerusakan,
     );
 
 final diagnosa = Diagnosa(

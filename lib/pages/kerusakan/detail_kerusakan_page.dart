@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+
 import '../../data/data_manager.dart';
-import '../../data/rule_data.dart';
 import '../../models/kerusakan.dart';
 import '../../models/rule.dart';
 
@@ -16,19 +16,14 @@ class DetailKerusakanPage extends StatelessWidget {
     switch (kategori) {
       case "Mesin":
         return const Color(0xFFEF4444);
-
       case "Kelistrikan":
         return const Color(0xFFF59E0B);
-
       case "Transmisi":
         return const Color(0xFF3B82F6);
-
       case "Penggerak":
         return const Color(0xFF14B8A6);
-
       case "Rem":
         return const Color(0xFFF97316);
-
       default:
         return Colors.grey;
     }
@@ -38,19 +33,14 @@ class DetailKerusakanPage extends StatelessWidget {
     switch (kategori) {
       case "Mesin":
         return Icons.build_circle;
-
       case "Kelistrikan":
         return Icons.bolt;
-
       case "Transmisi":
         return Icons.settings;
-
       case "Penggerak":
         return Icons.cyclone;
-
       case "Rem":
         return Icons.warning_amber_rounded;
-
       default:
         return Icons.device_unknown;
     }
@@ -58,7 +48,7 @@ class DetailKerusakanPage extends StatelessWidget {
 
   Rule? getRuleByKerusakanId(String kerusakanId) {
     try {
-      return dataRule.firstWhere(
+      return DataManager.rules.firstWhere(
         (rule) => rule.kerusakanId == kerusakanId,
       );
     } catch (_) {
@@ -68,10 +58,7 @@ class DetailKerusakanPage extends StatelessWidget {
 
   String getNamaGejala(String gejalaId) {
     try {
-      final gejala = DataManager.gejala.firstWhere(
-        (g) => g.id == gejalaId,
-      );
-
+      final gejala = DataManager.gejala.firstWhere((g) => g.id == gejalaId);
       return gejala.nama;
     } catch (_) {
       return "Gejala tidak ditemukan";
@@ -82,59 +69,41 @@ class DetailKerusakanPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = getKategoriColor(data.kategori);
     final icon = getKategoriIcon(data.kategori);
-
-    final Rule? rule =
-        getRuleByKerusakanId(data.id);
+    final Rule? rule = getRuleByKerusakanId(data.id);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-
       body: CustomScrollView(
         slivers: [
-          /// APPBAR
           SliverAppBar(
             expandedHeight: 240,
             pinned: true,
             backgroundColor: color,
-
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [
-                      color,
-                      color.withOpacity(0.75),
-                    ],
+                    colors: [color, color.withOpacity(0.75)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                 ),
-
                 child: SafeArea(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
                     child: Column(
-                      mainAxisAlignment:
-                          MainAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Container(
                           width: 90,
                           height: 90,
                           decoration: BoxDecoration(
-                            color: Colors.white
-                                .withOpacity(0.18),
-                            borderRadius:
-                                BorderRadius.circular(26),
+                            color: Colors.white.withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(26),
                           ),
-                          child: Icon(
-                            icon,
-                            color: Colors.white,
-                            size: 48,
-                          ),
+                          child: Icon(icon, color: Colors.white, size: 48),
                         ),
-
                         const SizedBox(height: 20),
-
                         Text(
                           data.nama,
                           textAlign: TextAlign.center,
@@ -144,20 +113,15 @@ class DetailKerusakanPage extends StatelessWidget {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-
                         const SizedBox(height: 10),
-
                         Container(
-                          padding:
-                              const EdgeInsets.symmetric(
+                          padding: const EdgeInsets.symmetric(
                             horizontal: 14,
                             vertical: 7,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white
-                                .withOpacity(0.18),
-                            borderRadius:
-                                BorderRadius.circular(14),
+                            color: Colors.white.withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                           child: Text(
                             data.kategori,
@@ -174,99 +138,23 @@ class DetailKerusakanPage extends StatelessWidget {
               ),
             ),
           ),
-
-          /// CONTENT
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(20),
-
               child: Column(
                 children: [
                   buildCard(
                     title: "Deskripsi",
                     icon: Icons.description_outlined,
                     color: color,
-                    child: Column(
-                      children: data.deskripsi
-                          .map(
-                            (item) => buildBullet(item),
-                          )
-                          .toList(),
-                    ),
+                    child: buildParagraphList(data.deskripsi),
                   ),
-
-                  buildGejalaCard(
-                    rule: rule,
-                    color: color,
-                  ),
-
+                  buildGejalaCard(rule: rule, color: color),
                   buildCard(
                     title: "Saran Perbaikan",
                     icon: Icons.build_outlined,
                     color: color,
-                    child: Column(
-                      children: data.solusi
-                          .split('\n')
-                          .where(
-                            (e) =>
-                                e.trim().isNotEmpty,
-                          )
-                          .toList()
-                          .asMap()
-                          .entries
-                          .map(
-                        (entry) {
-                          final i = entry.key + 1;
-
-                          return Padding(
-                            padding:
-                                const EdgeInsets.only(
-                              bottom: 10,
-                            ),
-                            child: Row(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment
-                                      .start,
-                              children: [
-                                Container(
-                                  width: 26,
-                                  height: 26,
-                                  alignment:
-                                      Alignment.center,
-                                  decoration:
-                                      BoxDecoration(
-                                    color: color
-                                        .withOpacity(0.12),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Text(
-                                    "$i",
-                                    style: TextStyle(
-                                      color: color,
-                                      fontWeight:
-                                          FontWeight.bold,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-
-                                const SizedBox(width: 12),
-
-                                Expanded(
-                                  child: Text(
-                                    entry.value,
-                                    style:
-                                        const TextStyle(
-                                      height: 1.5,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ).toList(),
-                    ),
+                    child: buildSolutionParagraph(data.solusi),
                   ),
                 ],
               ),
@@ -285,11 +173,8 @@ class DetailKerusakanPage extends StatelessWidget {
   }) {
     return Container(
       width: double.infinity,
-
       margin: const EdgeInsets.only(bottom: 18),
-
       padding: const EdgeInsets.all(20),
-
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
@@ -301,10 +186,8 @@ class DetailKerusakanPage extends StatelessWidget {
           ),
         ],
       ),
-
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
@@ -313,17 +196,11 @@ class DetailKerusakanPage extends StatelessWidget {
                 height: 42,
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.12),
-                  borderRadius:
-                      BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(
-                  icon,
-                  color: color,
-                ),
+                child: Icon(icon, color: color),
               ),
-
               const SizedBox(width: 12),
-
               Text(
                 title,
                 style: const TextStyle(
@@ -333,34 +210,65 @@ class DetailKerusakanPage extends StatelessWidget {
               ),
             ],
           ),
-
           const SizedBox(height: 18),
-
           child,
         ],
       ),
     );
   }
 
-  Widget buildBullet(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+  Widget buildParagraphList(List<String> items) {
+    final paragraphs = items.where((e) => e.trim().isNotEmpty).toList();
 
-      child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          const Text("• "),
+    if (paragraphs.isEmpty) {
+      return const Text(
+        "Belum ada deskripsi.",
+        style: TextStyle(
+          height: 1.6,
+          color: Color(0xFF475569),
+        ),
+      );
+    }
 
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                height: 1.5,
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: paragraphs.map((text) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: Text(
+            text.trim(),
+            textAlign: TextAlign.justify,
+            style: const TextStyle(
+              fontSize: 15.5,
+              height: 1.65,
+              color: Color(0xFF1F2937),
             ),
           ),
-        ],
+        );
+      }).toList(),
+    );
+  }
+
+  Widget buildSolutionParagraph(String solusi) {
+    final text = solusi.trim();
+
+    if (text.isEmpty) {
+      return const Text(
+        "Belum ada saran perbaikan.",
+        style: TextStyle(
+          height: 1.6,
+          color: Color(0xFF475569),
+        ),
+      );
+    }
+
+    return Text(
+      text,
+      textAlign: TextAlign.justify,
+      style: const TextStyle(
+        fontSize: 15.5,
+        height: 1.65,
+        color: Color(0xFF1F2937),
       ),
     );
   }
@@ -369,79 +277,53 @@ class DetailKerusakanPage extends StatelessWidget {
     required Rule? rule,
     required Color color,
   }) {
-    final gejalaRules =
-        rule?.gejalaRules ?? [];
+    final gejalaRules = rule?.gejalaRules ?? [];
 
     return buildCard(
       title: "Gejala Terkait",
       icon: Icons.medical_information_outlined,
       color: color,
-
       child: gejalaRules.isEmpty
           ? Text(
               "Belum ada gejala terkait.",
-              style: TextStyle(
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(color: Colors.grey[600]),
             )
           : Column(
               children: gejalaRules.map((g) {
-                final namaGejala =
-                    getNamaGejala(g.gejalaId);
+                final namaGejala = getNamaGejala(g.gejalaId);
 
                 return Container(
-                  margin:
-                      const EdgeInsets.only(bottom: 12),
-
+                  margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(14),
-
                   decoration: BoxDecoration(
-                    color:
-                        color.withOpacity(0.06),
-                    borderRadius:
-                        BorderRadius.circular(18),
+                    color: color.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(18),
                   ),
-
                   child: Row(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.check_circle,
-                        color: color,
-                        size: 20,
-                      ),
-
+                      Icon(Icons.check_circle, color: color, size: 20),
                       const SizedBox(width: 12),
-
                       Expanded(
                         child: Text(
                           namaGejala,
-                          style: const TextStyle(
-                            height: 1.4,
-                          ),
+                          style: const TextStyle(height: 1.4),
                         ),
                       ),
-
                       Container(
-                        padding:
-                            const EdgeInsets.symmetric(
+                        padding: const EdgeInsets.symmetric(
                           horizontal: 10,
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color:
-                              color.withOpacity(0.12),
-                          borderRadius:
-                              BorderRadius.circular(
-                                  12),
+                          color: color.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
                           "CF ${g.bobotPakar.toStringAsFixed(1)}",
                           style: TextStyle(
                             color: color,
-                            fontWeight:
-                                FontWeight.bold,
+                            fontWeight: FontWeight.bold,
                             fontSize: 12,
                           ),
                         ),

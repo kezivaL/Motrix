@@ -379,32 +379,18 @@ class _KelolaKerusakanPageState extends State<KelolaKerusakanPage> {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      DropdownButtonFormField<String>(
-                        initialValue: selectedKategori,
-                        isExpanded: true,
-                        dropdownColor: const Color(0xFF1E293B),
-                        decoration: InputDecoration(
-                          labelText: "Kategori",
-                          filled: true,
-                          fillColor: const Color(0xFF111827),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          "Kategori",
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        items: urutanKategori.map((kategori) {
-                          return DropdownMenuItem<String>(
-                            value: kategori,
-                            child: Text(kategori),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          if (val == null) return;
-                          setModalState(() {
-                            selectedKategori = val;
-                          });
-                        },
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 10),
                       GridView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
@@ -503,57 +489,59 @@ class _KelolaKerusakanPageState extends State<KelolaKerusakanPage> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: ElevatedButton(
-                              onPressed: () {
-                                final nama = namaController.text.trim();
+                              onPressed: () async {
+                              final nama = namaController.text.trim();
 
-                                final deskripsi = deskripsiController.text
-                                    .split('.')
-                                    .map((e) => e.trim())
-                                    .where((e) => e.isNotEmpty)
-                                    .toList();
+                              final deskripsi = deskripsiController.text
+                                  .split('.')
+                                  .map((e) => e.trim())
+                                  .where((e) => e.isNotEmpty)
+                                  .toList();
 
-                                final solusi = solusiController.text.trim();
+                              final solusi = solusiController.text.trim();
 
-                                if (nama.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content:
-                                          Text("Nama kerusakan wajib diisi"),
-                                    ),
+                              if (nama.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text("Nama kerusakan wajib diisi"),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              final updated = List<Kerusakan>.from(DataManager.kerusakan);
+
+                              if (item == null) {
+                                updated.add(
+                                  Kerusakan(
+                                    id: generateKerusakanId(),
+                                    nama: nama,
+                                    deskripsi: deskripsi,
+                                    solusi: solusi,
+                                    kategori: selectedKategori,
+                                  ),
+                                );
+                              } else {
+                                final originalIndex = getOriginalIndex(item);
+
+                                if (originalIndex != -1) {
+                                  updated[originalIndex] = Kerusakan(
+                                    id: item.id,
+                                    nama: nama,
+                                    deskripsi: deskripsi,
+                                    solusi: solusi,
+                                    kategori: selectedKategori,
                                   );
-                                  return;
                                 }
+                              }
 
-                                setState(() {
-                                  if (item == null) {
-                                    DataManager.kerusakan.add(
-                                      Kerusakan(
-                                        id: generateKerusakanId(),
-                                        nama: nama,
-                                        deskripsi: deskripsi,
-                                        solusi: solusi,
-                                        kategori: selectedKategori,
-                                      ),
-                                    );
-                                  } else {
-                                    final originalIndex =
-                                        getOriginalIndex(item);
+                              await DataManager.saveKerusakan(updated);
 
-                                    if (originalIndex != -1) {
-                                      DataManager.kerusakan[originalIndex] =
-                                          Kerusakan(
-                                        id: item.id,
-                                        nama: nama,
-                                        deskripsi: deskripsi,
-                                        solusi: solusi,
-                                        kategori: selectedKategori,
-                                      );
-                                    }
-                                  }
-                                });
+                              if (!mounted) return;
+                              setState(() {});
 
-                                Navigator.pop(context);
-                              },
+                              Navigator.pop(context);
+                            },
                               child: const Text("Simpan"),
                             ),
                           ),
@@ -596,14 +584,18 @@ class _KelolaKerusakanPageState extends State<KelolaKerusakanPage> {
     );
   }
 
-  void hapus(Kerusakan item) {
+  Future<void> hapus(Kerusakan item) async {
     final originalIndex = getOriginalIndex(item);
 
     if (originalIndex == -1) return;
 
-    setState(() {
-      DataManager.kerusakan.removeAt(originalIndex);
-    });
+    final updated = List<Kerusakan>.from(DataManager.kerusakan);
+    updated.removeAt(originalIndex);
+
+    await DataManager.saveKerusakan(updated);
+
+    if (!mounted) return;
+    setState(() {});
   }
 
   Widget kategoriHeader(String kategori) {

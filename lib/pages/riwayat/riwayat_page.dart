@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+
+import '../../data/data_manager.dart';
 import '../../services/storage_service.dart';
 import '../../models/diagnosa.dart';
-import '../../data/kerusakan_data.dart';
 import 'detail_riwayat_page.dart';
 
 class RiwayatPage extends StatefulWidget {
@@ -23,6 +24,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
   Future<void> loadData() async {
     final data = await StorageService.loadRiwayat();
 
+    if (!mounted) return;
     setState(() {
       riwayat = data.reversed.toList();
     });
@@ -30,7 +32,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
 
   String getNamaKerusakan(String id) {
     try {
-      final k = dataKerusakan.firstWhere((e) => e.id == id);
+      final k = DataManager.kerusakan.firstWhere((e) => e.id == id);
       return k.nama;
     } catch (_) {
       return "Kerusakan tidak ditemukan";
@@ -52,15 +54,18 @@ class _RiwayatPageState extends State<RiwayatPage> {
       ..sort((a, b) => b.skor.compareTo(a.skor));
 
     return sortedHasil.map((h) {
-      final k = dataKerusakan.firstWhere(
+      final k = DataManager.kerusakan.firstWhere(
         (e) => e.id == h.kerusakanId,
+        orElse: () {
+          return DataManager.kerusakan.first;
+        },
       );
 
       return {
         "id": k.id,
-        "nama": k.nama,
-        "deskripsi": k.deskripsi.join(", "),
-        "solusi": k.solusi,
+        "nama": k.id == h.kerusakanId ? k.nama : "Kerusakan tidak ditemukan",
+        "deskripsi": k.id == h.kerusakanId ? k.deskripsi.join(", ") : "-",
+        "solusi": k.id == h.kerusakanId ? k.solusi : "-",
         "skor": h.skor,
       };
     }).toList();
@@ -188,7 +193,6 @@ class _RiwayatPageState extends State<RiwayatPage> {
               ],
             ),
           ),
-
           Expanded(
             child: riwayat.isEmpty
                 ? const Center(

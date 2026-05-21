@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+
+import '../../data/data_manager.dart';
 import '../admin/kelola_gejala_page.dart';
 import '../admin/kelola_kerusakan_page.dart';
 import '../admin/kelola_rule_page.dart';
+import '../../services/storage_service.dart';
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -11,57 +14,327 @@ class AdminPage extends StatefulWidget {
 }
 
 class _AdminPageState extends State<AdminPage> {
+  bool isLoading = false;
 
-  /// 🔐 LOGOUT
+  @override
+  void initState() {
+    super.initState();
+    refreshData();
+  }
+  int totalDiagnosaAllUser = 0;
+  Future<void> refreshData() async {
+    if (isLoading) return;
+
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      await DataManager.refreshFromSupabase(includeRiwayat: true);
+      totalDiagnosaAllUser = await StorageService.countAllRiwayatDiagnosa();
+    } catch (_) {
+      await DataManager.loadAll();
+      totalDiagnosaAllUser = await StorageService.countAllRiwayatDiagnosa();
+    }
+
+    if (!mounted) return;
+    setState(() {
+      isLoading = false;
+    });
+  }
+
+  Future<void> openPage(Widget page) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => page),
+    );
+
+    await refreshData();
+  }
+
   void handleLogout() {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text("Logout"),
-        content: Text("Yakin mau keluar?"),
+        backgroundColor: const Color(0xFF0F172A),
+        title: const Text(
+          "Logout",
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          "Yakin mau keluar?",
+          style: TextStyle(color: Colors.white70),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text("Batal"),
+            child: const Text("Batal"),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               Navigator.pop(context);
             },
-            child: Text("Logout"),
+            child: const Text("Logout"),
           ),
         ],
       ),
     );
   }
 
-  /// 📊 STAT CARD
-  Widget buildStatCard(String title, String value, Color color) {
-    return Expanded(
-      child: Container(
-        padding: EdgeInsets.all(14),
-        margin: EdgeInsets.all(4),
-        decoration: BoxDecoration(
+  int get totalRule {
+    int total = 0;
+    for (final rule in DataManager.rules) {
+      total += rule.gejalaRules.length;
+    }
+    return total;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final totalGejala = DataManager.gejala.length;
+    final totalKerusakan = DataManager.kerusakan.length;
+    final totalDiagnosa = totalDiagnosaAllUser;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF08111F),
+      body: Container(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [color, color.withOpacity(0.7)],
+            colors: [
+              Color(0xFF08111F),
+              Color(0xFF0F172A),
+              Color(0xFF172536),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(16),
         ),
-        child: Column(
-          children: [
-            Text(
-              value,
+        child: SafeArea(
+          child: RefreshIndicator(
+            onRefresh: refreshData,
+            color: const Color(0xFF38BDF8),
+            backgroundColor: const Color(0xFF0F172A),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(22, 24, 22, 30),
+              children: [
+                buildHeader(),
+                const SizedBox(height: 24),
+                if (isLoading) ...[
+                  buildSyncInfo(),
+                  const SizedBox(height: 18),
+                ],
+                Row(
+                  children: [
+                    buildStatCard(
+                      title: "Gejala",
+                      value: totalGejala.toString(),
+                      color1: const Color(0xFF38BDF8),
+                      color2: const Color(0xFF2563EB),
+                      icon: Icons.list_alt_rounded,
+                    ),
+                    const SizedBox(width: 14),
+                    buildStatCard(
+                      title: "Kerusakan",
+                      value: totalKerusakan.toString(),
+                      color1: const Color(0xFFF59E0B),
+                      color2: const Color(0xFFD97706),
+                      icon: Icons.warning_amber_rounded,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    buildStatCard(
+                      title: "Rule",
+                      value: totalRule.toString(),
+                      color1: const Color(0xFFC026D3),
+                      color2: const Color(0xFF7E22CE),
+                      icon: Icons.account_tree_rounded,
+                    ),
+                    const SizedBox(width: 14),
+                    buildStatCard(
+                      title: "Diagnosa",
+                      value: totalDiagnosa.toString(),
+                      color1: const Color(0xFF22C55E),
+                      color2: const Color(0xFF15803D),
+                      icon: Icons.analytics_rounded,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 30),
+                buildMenuCard(
+                  icon: Icons.list_alt_rounded,
+                  title: "Kelola Gejala",
+                  desc: "Tambah & edit data gejala",
+                  color: const Color(0xFF38BDF8),
+                  onTap: () => openPage(const KelolaGejalaPage()),
+                ),
+                buildMenuCard(
+                  icon: Icons.warning_amber_rounded,
+                  title: "Kelola Kerusakan",
+                  desc: "Kelola data kerusakan",
+                  color: const Color(0xFFF59E0B),
+                  onTap: () => openPage(const KelolaKerusakanPage()),
+                ),
+                buildMenuCard(
+                  icon: Icons.account_tree_rounded,
+                  title: "Kelola Rule",
+                  desc: "Relasi gejala & kerusakan",
+                  color: const Color(0xFFC026D3),
+                  onTap: () => openPage(const KelolaRulePage()),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget buildHeader() {
+    return Row(
+      children: [
+        const Expanded(
+          child: Text(
+            "Admin Dashboard",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 27,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.4,
+            ),
+          ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.12)),
+          ),
+          child: IconButton(
+            tooltip: "Refresh",
+            onPressed: isLoading ? null : refreshData,
+            icon: Icon(
+              Icons.refresh_rounded,
+              color: isLoading ? Colors.white38 : Colors.white,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.12)),
+          ),
+          child: IconButton(
+            tooltip: "Logout",
+            onPressed: handleLogout,
+            icon: const Icon(
+              Icons.logout_rounded,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget buildSyncInfo() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF172554),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: const Row(
+        children: [
+          SizedBox(
+            width: 17,
+            height: 17,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Color(0xFF38BDF8),
+            ),
+          ),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              "Menyinkronkan data dari Supabase...",
               style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+                color: Colors.white70,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(height: 4),
-            Text(
-              title,
-              style: TextStyle(color: Colors.white70),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildStatCard({
+    required String title,
+    required String value,
+    required Color color1,
+    required Color color2,
+    required IconData icon,
+  }) {
+    return Expanded(
+      child: Container(
+        height: 108,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [color1, color2],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: color1.withOpacity(0.22),
+              blurRadius: 18,
+              offset: const Offset(0, 9),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              right: -4,
+              bottom: -4,
+              child: Icon(
+                icon,
+                size: 54,
+                color: Colors.white.withOpacity(0.13),
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 27,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.78),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -69,7 +342,6 @@ class _AdminPageState extends State<AdminPage> {
     );
   }
 
-  /// 📂 MENU CARD
   Widget buildMenuCard({
     required IconData icon,
     required String title,
@@ -77,159 +349,73 @@ class _AdminPageState extends State<AdminPage> {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.all(16),
-        margin: EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white24),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(12),
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(24),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: const Color(0xFF172536),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.white.withOpacity(0.12)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.18),
+                blurRadius: 18,
+                offset: const Offset(0, 9),
               ),
-              child: Icon(icon, color: Colors.white),
-            ),
-            SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    desc,
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right, color: Colors.white54),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 🔥 BUILD WAJIB ADA
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+            ],
           ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: EdgeInsets.all(16),
-            child: Column(
-              children: [
-
-                /// HEADER
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Row(
+            children: [
+              Container(
+                width: 62,
+                height: 62,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Icon(
+                  icon,
+                  color: Colors.white,
+                  size: 31,
+                ),
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "Admin Dashboard",
-                      style: TextStyle(
+                      title,
+                      style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
-                    IconButton(
-                      onPressed: handleLogout,
-                      icon: Icon(Icons.logout, color: Colors.white),
-                    )
+                    const SizedBox(height: 6),
+                    Text(
+                      desc,
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ],
                 ),
-
-                SizedBox(height: 20),
-
-                /// STAT
-                Row(
-                  children: [
-                    buildStatCard("Gejala", "15", Colors.blue),
-                    buildStatCard("Kerusakan", "12", Colors.orange),
-                  ],
-                ),
-                Row(
-                  children: [
-                    buildStatCard("Rule", "48", Colors.purple),
-                    buildStatCard("Diagnosa", "234", Colors.green),
-                  ],
-                ),
-
-                SizedBox(height: 20),
-
-                /// MENU
-                Expanded(
-                  child: ListView(
-                    children: [
-                      buildMenuCard(
-                        icon: Icons.list,
-                        title: "Kelola Gejala",
-                        desc: "Tambah & edit data gejala",
-                        color: Colors.blue,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const KelolaGejalaPage(),
-                            ),
-                          );
-                        },
-                      ),
-                      buildMenuCard(
-                        icon: Icons.warning,
-                        title: "Kelola Kerusakan",
-                        desc: "Kelola data kerusakan",
-                        color: Colors.orange,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const KelolaKerusakanPage(),
-                            ),
-                          );
-                        },
-                      ),
-                      buildMenuCard(
-                        icon: Icons.account_tree,
-                        title: "Kelola Rule",
-                        desc: "Relasi gejala & kerusakan",
-                        color: Colors.purple,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const KelolaRulePage(),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.white54,
+                size: 34,
+              ),
+            ],
           ),
         ),
       ),

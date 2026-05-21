@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/data_manager.dart';
@@ -34,7 +35,6 @@ class _DashboardPageState extends State<DashboardPage>
 
   bool isSyncing = false;
   bool isRealtimeConnected = false;
-  bool isFirstLoading = true;
 
   DateTime? lastSyncAt;
 
@@ -42,26 +42,20 @@ class _DashboardPageState extends State<DashboardPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    initDashboardRealtime();
+
+    setupRealtimeSync();
+
+    Future.microtask(() {
+      refreshMasterData(showLoading: false);
+    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-
     debounceTimer?.cancel();
     reconnectTimer?.cancel();
-
-    if (gejalaChannel != null) {
-      supabase.removeChannel(gejalaChannel!);
-    }
-    if (kerusakanChannel != null) {
-      supabase.removeChannel(kerusakanChannel!);
-    }
-    if (rulesChannel != null) {
-      supabase.removeChannel(rulesChannel!);
-    }
-
+    removeRealtimeChannels();
     super.dispose();
   }
 
@@ -73,28 +67,15 @@ class _DashboardPageState extends State<DashboardPage>
     }
   }
 
-  Future<void> initDashboardRealtime() async {
-    await refreshMasterData(showLoading: false);
-    setupRealtimeSync();
-
-    if (!mounted) return;
-    setState(() {
-      isFirstLoading = false;
-    });
-  }
-
   Future<void> refreshMasterData({bool showLoading = true}) async {
     if (isSyncing) return;
 
-    if (mounted) {
-      setState(() {
-        isSyncing = showLoading;
-      });
+    if (mounted && showLoading) {
+      setState(() => isSyncing = true);
     }
 
     try {
       await DataManager.refreshFromSupabase();
-
       if (!mounted) return;
       setState(() {
         lastSyncAt = DateTime.now();
@@ -105,10 +86,7 @@ class _DashboardPageState extends State<DashboardPage>
       } catch (_) {}
     } finally {
       if (!mounted) return;
-      setState(() {
-        isSyncing = false;
-        isFirstLoading = false;
-      });
+      setState(() => isSyncing = false);
     }
   }
 
@@ -146,9 +124,7 @@ class _DashboardPageState extends State<DashboardPage>
         .subscribe();
 
     if (mounted) {
-      setState(() {
-        isRealtimeConnected = true;
-      });
+      setState(() => isRealtimeConnected = true);
     }
 
     scheduleReconnectCheck();
@@ -178,16 +154,13 @@ class _DashboardPageState extends State<DashboardPage>
 
   void scheduleReconnectCheck() {
     reconnectTimer?.cancel();
-    reconnectTimer = Timer.periodic(const Duration(seconds: 12), (_) {
+    reconnectTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       if (!mounted) return;
 
-      final bool channelMissing =
-          gejalaChannel == null || kerusakanChannel == null || rulesChannel == null;
-
-      if (channelMissing) {
-        setState(() {
-          isRealtimeConnected = false;
-        });
+      if (gejalaChannel == null ||
+          kerusakanChannel == null ||
+          rulesChannel == null) {
+        setState(() => isRealtimeConnected = false);
         reconnectRealtimeSafe();
       }
     });
@@ -200,9 +173,7 @@ class _DashboardPageState extends State<DashboardPage>
       setupRealtimeSync();
     } catch (_) {
       if (!mounted) return;
-      setState(() {
-        isRealtimeConnected = false;
-      });
+      setState(() => isRealtimeConnected = false);
     }
   }
 
@@ -210,13 +181,11 @@ class _DashboardPageState extends State<DashboardPage>
     if (isSyncing) return "Menyinkronkan data terbaru...";
 
     if (lastSyncAt == null) {
-      return isRealtimeConnected
-          ? "Realtime aktif"
-          : "Realtime mencoba tersambung ulang";
+      return isRealtimeConnected ? "Realtime aktif" : "Mode offline aman";
     }
 
-    final String jam = lastSyncAt!.hour.toString().padLeft(2, '0');
-    final String menit = lastSyncAt!.minute.toString().padLeft(2, '0');
+    final jam = lastSyncAt!.hour.toString().padLeft(2, '0');
+    final menit = lastSyncAt!.minute.toString().padLeft(2, '0');
 
     return isRealtimeConnected
         ? "Realtime aktif • Sinkron terakhir $jam:$menit"
@@ -225,125 +194,78 @@ class _DashboardPageState extends State<DashboardPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: bgColor,
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFFE9D5FF),
-        foregroundColor: const Color(0xFF5B21B6),
-        elevation: 8,
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => LoginPage()),
-          );
-        },
-        child: const Icon(Icons.settings),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: primaryBlue,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: bgColor,
+        systemNavigationBarIconBrightness: Brightness.dark,
       ),
-      body: SafeArea(
-        child: isFirstLoading
-            ? buildModernLoading()
-            : Column(
-                children: [
-                  buildHeader(),
-                  buildRealtimeBar(),
-                  Expanded(
-                    child: RefreshIndicator(
-                      onRefresh: () => refreshMasterData(showLoading: true),
-                      child: SingleChildScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          children: [
-                            buildDiagnosaCard(context),
-                            const SizedBox(height: 18),
-                            buildMenuCard(
-                              context: context,
-                              icon: Icons.warning_amber_rounded,
-                              title: "Daftar Kerusakan",
-                              subtitle: "Lihat daftar kerusakan motor listrik",
-                              color: Colors.orange,
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const KerusakanPage(),
-                                  ),
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 14),
-                            buildMenuCard(
-                              context: context,
-                              icon: Icons.history_rounded,
-                              title: "Riwayat Diagnosa",
-                              subtitle: "Lihat hasil diagnosa sebelumnya",
-                              color: Colors.green,
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const RiwayatPage(),
-                                  ),
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 18),
-                            buildInfoBox(),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-      ),
-    );
-  }
-
-  Widget buildModernLoading() {
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.all(28),
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(26),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 24,
-              offset: const Offset(0, 12),
-            ),
-          ],
+      child: Scaffold(
+        backgroundColor: bgColor,
+        floatingActionButton: FloatingActionButton(
+          backgroundColor: const Color(0xFFE9D5FF),
+          foregroundColor: const Color(0xFF5B21B6),
+          elevation: 8,
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => LoginPage()),
+            );
+          },
+          child: const Icon(Icons.settings),
         ),
-        child: const Column(
-          mainAxisSize: MainAxisSize.min,
+        body: Column(
           children: [
-            SizedBox(
-              width: 38,
-              height: 38,
-              child: CircularProgressIndicator(
-                strokeWidth: 3,
-                color: primaryBlue,
-              ),
-            ),
-            SizedBox(height: 16),
-            Text(
-              "Memuat Motrix",
-              style: TextStyle(
-                color: textColor,
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            SizedBox(height: 6),
-            Text(
-              "Menyiapkan sinkronisasi realtime...",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Color(0xFF64748B),
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
+            buildHeader(),
+            buildRealtimeBar(),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () => refreshMasterData(showLoading: true),
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      buildDiagnosaCard(context),
+                      const SizedBox(height: 18),
+                      buildMenuCard(
+                        context: context,
+                        icon: Icons.warning_amber_rounded,
+                        title: "Daftar Kerusakan",
+                        subtitle: "Lihat daftar kerusakan motor listrik",
+                        color: Colors.orange,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const KerusakanPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      buildMenuCard(
+                        context: context,
+                        icon: Icons.history_rounded,
+                        title: "Riwayat Diagnosa",
+                        subtitle: "Lihat hasil diagnosa sebelumnya",
+                        color: Colors.green,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const RiwayatPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                      buildInfoBox(),
+                    ],
+                  ),
+                ),
               ),
             ),
           ],
@@ -355,13 +277,14 @@ class _DashboardPageState extends State<DashboardPage>
   Widget buildHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(22, 20, 22, 24),
+      padding: EdgeInsets.fromLTRB(
+        22,
+        MediaQuery.of(context).padding.top + 20,
+        22,
+        24,
+      ),
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [primaryBlue, primaryPurple],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
+        color: primaryBlue,
         borderRadius: BorderRadius.vertical(
           bottom: Radius.circular(28),
         ),
@@ -422,32 +345,16 @@ class _DashboardPageState extends State<DashboardPage>
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.045),
-            blurRadius: 14,
-            offset: const Offset(0, 7),
-          ),
-        ],
       ),
       child: Row(
         children: [
-          isSyncing
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: primaryBlue,
-                  ),
-                )
-              : Icon(
-                  isRealtimeConnected
-                      ? Icons.cloud_done_rounded
-                      : Icons.cloud_sync_rounded,
-                  color: statusColor,
-                  size: 21,
-                ),
+          Icon(
+            isRealtimeConnected
+                ? Icons.cloud_done_rounded
+                : Icons.cloud_sync_rounded,
+            color: statusColor,
+            size: 21,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -464,13 +371,10 @@ class _DashboardPageState extends State<DashboardPage>
             onTap: isSyncing
                 ? null
                 : () => refreshMasterData(showLoading: true),
-            child: const Padding(
-              padding: EdgeInsets.all(4),
-              child: Icon(
-                Icons.refresh_rounded,
-                color: primaryBlue,
-                size: 20,
-              ),
+            child: Icon(
+              Icons.refresh_rounded,
+              color: isSyncing ? Colors.grey : primaryBlue,
+              size: 20,
             ),
           ),
         ],
@@ -491,62 +395,24 @@ class _DashboardPageState extends State<DashboardPage>
         width: double.infinity,
         padding: const EdgeInsets.all(22),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [primaryBlue, primaryPurple],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
+          color: primaryBlue,
           borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: primaryBlue.withOpacity(0.22),
-              blurRadius: 18,
-              offset: const Offset(0, 10),
-            ),
-          ],
         ),
-        child: Row(
+        child: const Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.18),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: const Icon(
-                Icons.search_rounded,
-                color: Colors.white,
-                size: 34,
-              ),
-            ),
-            const SizedBox(width: 16),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Diagnosa",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 19,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 5),
-                  Text(
-                    "Mulai diagnosa berdasarkan gejala",
-                    style: TextStyle(
-                      color: Colors.white70,
-                    ),
-                  ),
-                ],
+            Icon(Icons.search_rounded, color: Colors.white, size: 36),
+            SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                "Mulai Diagnosa",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 19,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: Colors.white,
-              size: 30,
-            ),
+            Icon(Icons.chevron_right_rounded, color: Colors.white, size: 30),
           ],
         ),
       ),
@@ -569,53 +435,22 @@ class _DashboardPageState extends State<DashboardPage>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
-            ),
-          ],
         ),
         child: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(13),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(icon, color: color, size: 28),
-            ),
+            Icon(icon, color: color, size: 30),
             const SizedBox(width: 15),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: textColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
+              child: Text(
+                title,
+                style: const TextStyle(
+                  color: textColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
               ),
             ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: Colors.grey.shade500,
-              size: 28,
-            ),
+            Icon(Icons.chevron_right_rounded, color: Colors.grey.shade500),
           ],
         ),
       ),
@@ -623,27 +458,13 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   Widget buildInfoBox() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE0F2FE),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFBAE6FD)),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.info_rounded, color: Color(0xFF0284C7)),
-          SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              "Aplikasi diagnosa motor listrik membantu mendeteksi kerusakan dengan cepat dan terstruktur.",
-              style: TextStyle(
-                fontSize: 13,
-                color: Color(0xFF334155),
-              ),
-            ),
-          ),
-        ],
+    return const Text(
+      "Motrix membantu mendiagnosa kerusakan motor listrik secara cepat menggunakan metode Certainty Factor.",
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        fontSize: 13,
+        height: 1.5,
+        color: Color(0xFF64748B),
       ),
     );
   }

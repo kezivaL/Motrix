@@ -318,32 +318,18 @@ class _KelolaGejalaPageState extends State<KelolaGejalaPage> {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      DropdownButtonFormField<String>(
-                        initialValue: selectedKategori,
-                        isExpanded: true,
-                        dropdownColor: const Color(0xFF1E293B),
-                        decoration: InputDecoration(
-                          labelText: "Kategori",
-                          filled: true,
-                          fillColor: const Color(0xFF111827),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          "Kategori",
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        items: urutanKategori.map((kategori) {
-                          return DropdownMenuItem<String>(
-                            value: kategori,
-                            child: Text(kategori),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          if (val == null) return;
-                          setModalState(() {
-                            selectedKategori = val;
-                          });
-                        },
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 10),
                       GridView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
@@ -441,44 +427,47 @@ class _KelolaGejalaPageState extends State<KelolaGejalaPage> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: ElevatedButton(
-                              onPressed: () {
-                                final nama = namaController.text.trim();
+                              onPressed: () async {
+                              final nama = namaController.text.trim();
 
-                                if (nama.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text("Nama gejala wajib diisi"),
-                                    ),
+                              if (nama.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text("Nama gejala wajib diisi"),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              final updated = List<Symptom>.from(DataManager.gejala);
+
+                              if (symptom == null) {
+                                updated.add(
+                                  Symptom(
+                                    id: generateGejalaId(),
+                                    nama: nama,
+                                    kategori: selectedKategori,
+                                  ),
+                                );
+                              } else {
+                                final originalIndex = getOriginalIndex(symptom);
+
+                                if (originalIndex != -1) {
+                                  updated[originalIndex] = Symptom(
+                                    id: symptom.id,
+                                    nama: nama,
+                                    kategori: selectedKategori,
                                   );
-                                  return;
                                 }
+                              }
 
-                                setState(() {
-                                  if (symptom == null) {
-                                    DataManager.gejala.add(
-                                      Symptom(
-                                        id: generateGejalaId(),
-                                        nama: nama,
-                                        kategori: selectedKategori,
-                                      ),
-                                    );
-                                  } else {
-                                    final originalIndex =
-                                        getOriginalIndex(symptom);
+                              await DataManager.saveGejala(updated);
 
-                                    if (originalIndex != -1) {
-                                      DataManager.gejala[originalIndex] =
-                                          Symptom(
-                                        id: symptom.id,
-                                        nama: nama,
-                                        kategori: selectedKategori,
-                                      );
-                                    }
-                                  }
-                                });
+                              if (!mounted) return;
+                              setState(() {});
 
-                                Navigator.pop(context);
-                              },
+                              Navigator.pop(context);
+                            },
                               child: const Text("Simpan"),
                             ),
                           ),
@@ -495,14 +484,18 @@ class _KelolaGejalaPageState extends State<KelolaGejalaPage> {
     );
   }
 
-  void hapusGejala(Symptom item) {
+  Future<void> hapusGejala(Symptom item) async {
     final originalIndex = getOriginalIndex(item);
 
     if (originalIndex == -1) return;
 
-    setState(() {
-      DataManager.gejala.removeAt(originalIndex);
-    });
+    final updated = List<Symptom>.from(DataManager.gejala);
+    updated.removeAt(originalIndex);
+
+    await DataManager.saveGejala(updated);
+
+    if (!mounted) return;
+    setState(() {});
   }
 
   Widget kategoriHeader(String kategori) {

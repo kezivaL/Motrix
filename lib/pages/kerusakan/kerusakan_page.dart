@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../data/kerusakan_data.dart';
+import '../../data/data_manager.dart';
 import '../../models/kerusakan.dart';
 import 'detail_kerusakan_page.dart';
 
@@ -160,7 +160,7 @@ class _KerusakanPageState extends State<KerusakanPage> {
 
   @override
   Widget build(BuildContext context) {
-    final List<Kerusakan> kerusakanList = List<Kerusakan>.from(dataKerusakan);
+    final List<Kerusakan> kerusakanList = List<Kerusakan>.from(DataManager.kerusakan);
 
     kerusakanList.sort((a, b) {
       final kategoriCompare =
@@ -225,7 +225,7 @@ class _KerusakanPageState extends State<KerusakanPage> {
                         "Daftar Kerusakan",
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 28,
+                          fontSize: 22,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
