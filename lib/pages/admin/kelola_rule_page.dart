@@ -806,16 +806,50 @@ class _KelolaRulePageState extends State<KelolaRulePage> {
     );
   }
 
-  Future<void> hapus(Rule rule) async {
-    final updated = List<Rule>.from(DataManager.rules);
+Future<void> hapus(Rule rule) async {
+  final confirm = await showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text('Hapus Rule'),
+        content: Text(
+          'Yakin ingin menghapus aturan untuk kerusakan "${rule.kerusakanId}"?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Ya, Hapus'),
+          ),
+        ],
+      );
+    },
+  );
 
-    updated.removeWhere((item) => item.kerusakanId == rule.kerusakanId);
+  if (confirm != true) return;
 
-    await DataManager.saveRules(updated);
+  final updated = List<Rule>.from(DataManager.rules);
+  updated.removeWhere((item) => item.kerusakanId == rule.kerusakanId);
 
-    if (!mounted) return;
-    setState(() {});
-  }
+  await DataManager.saveRules(updated);
+
+  if (!mounted) return;
+  setState(() {});
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Rule berhasil dihapus'),
+      backgroundColor: Colors.green,
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {

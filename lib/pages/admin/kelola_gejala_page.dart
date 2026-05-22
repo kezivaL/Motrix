@@ -484,19 +484,51 @@ class _KelolaGejalaPageState extends State<KelolaGejalaPage> {
     );
   }
 
-  Future<void> hapusGejala(Symptom item) async {
-    final originalIndex = getOriginalIndex(item);
+Future<void> hapusGejala(Symptom item) async {
+  final confirm = await showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text('Hapus Gejala'),
+        content: Text('Yakin ingin menghapus gejala "${item.nama}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Ya, Hapus'),
+          ),
+        ],
+      );
+    },
+  );
 
-    if (originalIndex == -1) return;
+  if (confirm != true) return;
 
-    final updated = List<Symptom>.from(DataManager.gejala);
-    updated.removeAt(originalIndex);
+  final originalIndex = getOriginalIndex(item);
+  if (originalIndex == -1) return;
 
-    await DataManager.saveGejala(updated);
+  final updated = List<Symptom>.from(DataManager.gejala);
+  updated.removeAt(originalIndex);
 
-    if (!mounted) return;
-    setState(() {});
-  }
+  await DataManager.saveGejala(updated);
+
+  if (!mounted) return;
+  setState(() {});
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Gejala berhasil dihapus'),
+      backgroundColor: Colors.green,
+    ),
+  );
+}
 
   Widget kategoriHeader(String kategori) {
     final color = kategoriColor(kategori);

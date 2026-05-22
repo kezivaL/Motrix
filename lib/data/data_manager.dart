@@ -50,9 +50,9 @@ class DataManager {
     final latestKerusakan = await StorageService.loadKerusakanFromSupabase();
     final latestRules = await StorageService.loadRuleFromSupabase();
 
-    if (latestGejala.isNotEmpty) gejala = latestGejala;
-    if (latestKerusakan.isNotEmpty) kerusakan = latestKerusakan;
-    if (latestRules.isNotEmpty) rules = latestRules;
+    gejala = latestGejala;
+    kerusakan = latestKerusakan;
+    rules = latestRules;
 
     if (includeRiwayat) {
       riwayat = await StorageService.loadRiwayatFromSupabase();
@@ -60,33 +60,32 @@ class DataManager {
   }
 
   static Future<void> saveGejala(List<Symptom> data) async {
-    gejala = data;
-    await StorageService.saveGejala(data);
+    gejala = List<Symptom>.from(data);
+    await StorageService.saveGejala(gejala);
   }
 
   static Future<void> saveKerusakan(List<Kerusakan> data) async {
-    kerusakan = data;
-    await StorageService.saveKerusakan(data);
+    kerusakan = List<Kerusakan>.from(data);
+    await StorageService.saveKerusakan(kerusakan);
   }
 
   static Future<void> saveRules(List<Rule> data) async {
-    rules = data;
-    await StorageService.saveRule(data);
+    rules = List<Rule>.from(data);
+    await StorageService.saveRule(rules);
   }
 
   static Future<void> saveRiwayat(List<Diagnosa> data) async {
-    riwayat = data;
-    await StorageService.saveRiwayat(data);
+    riwayat = List<Diagnosa>.from(data);
+    await StorageService.saveRiwayat(riwayat);
   }
 
   static Future<void> tambahRiwayat(Diagnosa data) async {
-    riwayat.add(data);
     await StorageService.tambahRiwayat(data);
     riwayat = await StorageService.loadRiwayat();
   }
 
   static Future<void> clearRiwayat() async {
-    riwayat.clear();
     await StorageService.clearRiwayat();
+    riwayat.clear();
   }
 }

@@ -40,9 +40,36 @@ class StorageService {
     if (raw == null || raw.isEmpty) return [];
 
     final decoded = jsonDecode(raw);
-    if (decoded is List) return decoded;
+    return decoded is List ? decoded : [];
+  }
 
-    return [];
+  static Future<void> _deleteMissingRows({
+    required String table,
+    required String idColumn,
+    required List<String> newIds,
+  }) async {
+    final response = await _supabase
+        .from(table)
+        .select(idColumn)
+        .timeout(_supabaseTimeout);
+
+    final oldIds = response.map<String>((e) {
+      final row = Map<String, dynamic>.from(e);
+      return row[idColumn].toString();
+    }).toSet();
+
+    final newIdSet = newIds.toSet();
+    final deletedIds = oldIds.where((id) => !newIdSet.contains(id)).toList();
+
+    for (final id in deletedIds) {
+      await _supabase
+          .from(table)
+          .delete()
+          .eq(idColumn, id)
+          .timeout(_supabaseTimeout);
+    }
+
+    debugPrint('DELETE MISSING $table: ${deletedIds.length} data');
   }
 
   // ================= GEJALA =================
@@ -52,7 +79,9 @@ class StorageService {
   }
 
   static Future<void> saveGejala(List<Symptom> data) async {
-    final jsonData = data.map((e) {
+    await saveGejalaLocalOnly(data);
+
+    final rows = data.map((e) {
       final json = e.toJson();
 
       return {
@@ -62,18 +91,21 @@ class StorageService {
       };
     }).toList();
 
-    await saveGejalaLocalOnly(data);
-
     try {
-      await _supabase
-          .from('gejala')
-          .upsert(
-            jsonData,
-            onConflict: 'id',
-          )
-          .timeout(_supabaseTimeout);
+      await _deleteMissingRows(
+        table: 'gejala',
+        idColumn: 'id',
+        newIds: data.map((e) => e.id).toList(),
+      );
 
-      debugPrint('BERHASIL SAVE GEJALA KE SUPABASE: ${jsonData.length} data');
+      if (rows.isNotEmpty) {
+        await _supabase
+            .from('gejala')
+            .upsert(rows, onConflict: 'id')
+            .timeout(_supabaseTimeout);
+      }
+
+      debugPrint('BERHASIL SAVE GEJALA SUPABASE: ${rows.length} data');
     } catch (e) {
       debugPrint('ERROR SAVE GEJALA SUPABASE: $e');
     }
@@ -81,9 +113,12 @@ class StorageService {
 
   static Future<List<Symptom>> loadGejala() async {
     final local = await loadGejalaLocal();
-    if (local.isNotEmpty) return local;
 
-    return loadGejalaFromSupabase();
+    if (local.isNotEmpty) {
+      return local;
+    }
+
+    return await loadGejalaFromSupabase();
   }
 
   static Future<List<Symptom>> loadGejalaLocal() async {
@@ -112,16 +147,13 @@ class StorageService {
         return Symptom.fromJson(Map<String, dynamic>.from(e));
       }).toList();
 
-      if (data.isNotEmpty) {
-        await saveGejalaLocalOnly(data);
-      }
+      await saveGejalaLocalOnly(data);
 
       debugPrint('BERHASIL LOAD GEJALA SUPABASE: ${data.length} data');
-
       return data;
     } catch (e) {
       debugPrint('ERROR LOAD GEJALA SUPABASE: $e');
-      return loadGejalaLocal();
+      return await loadGejalaLocal();
     }
   }
 
@@ -132,7 +164,9 @@ class StorageService {
   }
 
   static Future<void> saveKerusakan(List<Kerusakan> data) async {
-    final jsonData = data.map((e) {
+    await saveKerusakanLocalOnly(data);
+
+    final rows = data.map((e) {
       final json = e.toJson();
 
       return {
@@ -144,20 +178,21 @@ class StorageService {
       };
     }).toList();
 
-    await saveKerusakanLocalOnly(data);
-
     try {
-      await _supabase
-          .from('kerusakan')
-          .upsert(
-            jsonData,
-            onConflict: 'id',
-          )
-          .timeout(_supabaseTimeout);
-
-      debugPrint(
-        'BERHASIL SAVE KERUSAKAN KE SUPABASE: ${jsonData.length} data',
+      await _deleteMissingRows(
+        table: 'kerusakan',
+        idColumn: 'id',
+        newIds: data.map((e) => e.id).toList(),
       );
+
+      if (rows.isNotEmpty) {
+        await _supabase
+            .from('kerusakan')
+            .upsert(rows, onConflict: 'id')
+            .timeout(_supabaseTimeout);
+      }
+
+      debugPrint('BERHASIL SAVE KERUSAKAN SUPABASE: ${rows.length} data');
     } catch (e) {
       debugPrint('ERROR SAVE KERUSAKAN SUPABASE: $e');
     }
@@ -165,9 +200,12 @@ class StorageService {
 
   static Future<List<Kerusakan>> loadKerusakan() async {
     final local = await loadKerusakanLocal();
-    if (local.isNotEmpty) return local;
 
-    return loadKerusakanFromSupabase();
+    if (local.isNotEmpty) {
+      return local;
+    }
+
+    return await loadKerusakanFromSupabase();
   }
 
   static Future<List<Kerusakan>> loadKerusakanLocal() async {
@@ -196,16 +234,13 @@ class StorageService {
         return Kerusakan.fromJson(Map<String, dynamic>.from(e));
       }).toList();
 
-      if (data.isNotEmpty) {
-        await saveKerusakanLocalOnly(data);
-      }
+      await saveKerusakanLocalOnly(data);
 
       debugPrint('BERHASIL LOAD KERUSAKAN SUPABASE: ${data.length} data');
-
       return data;
     } catch (e) {
       debugPrint('ERROR LOAD KERUSAKAN SUPABASE: $e');
-      return loadKerusakanLocal();
+      return await loadKerusakanLocal();
     }
   }
 
@@ -218,26 +253,30 @@ class StorageService {
   static Future<void> saveRule(List<Rule> data) async {
     await saveRuleLocalOnly(data);
 
-    try {
-      await _supabase.from('rules').delete().neq('kerusakan_id', '');
+    final rows = <Map<String, dynamic>>[];
 
-      final rows = <Map<String, dynamic>>[];
-
-      for (final rule in data) {
-        for (final gejala in rule.gejalaRules) {
-          rows.add({
-            'kerusakan_id': rule.kerusakanId,
-            'gejala_id': gejala.gejalaId,
-            'bobot_pakar': gejala.bobotPakar,
-          });
-        }
+    for (final rule in data) {
+      for (final gejala in rule.gejalaRules) {
+        rows.add({
+          'kerusakan_id': rule.kerusakanId,
+          'gejala_id': gejala.gejalaId,
+          'bobot_pakar': gejala.bobotPakar,
+        });
       }
+    }
+
+    try {
+      await _supabase
+          .from('rules')
+          .delete()
+          .neq('kerusakan_id', '')
+          .timeout(_supabaseTimeout);
 
       if (rows.isNotEmpty) {
         await _supabase.from('rules').insert(rows).timeout(_supabaseTimeout);
       }
 
-      debugPrint('BERHASIL SAVE RULE KE SUPABASE: ${rows.length} baris');
+      debugPrint('BERHASIL SAVE RULE SUPABASE: ${rows.length} baris');
     } catch (e) {
       debugPrint('ERROR SAVE RULE SUPABASE: $e');
     }
@@ -245,9 +284,12 @@ class StorageService {
 
   static Future<List<Rule>> loadRule() async {
     final local = await loadRuleLocal();
-    if (local.isNotEmpty) return local;
 
-    return loadRuleFromSupabase();
+    if (local.isNotEmpty) {
+      return local;
+    }
+
+    return await loadRuleFromSupabase();
   }
 
   static Future<List<Rule>> loadRuleLocal() async {
@@ -298,16 +340,13 @@ class StorageService {
         );
       }).toList();
 
-      if (data.isNotEmpty) {
-        await saveRuleLocalOnly(data);
-      }
+      await saveRuleLocalOnly(data);
 
       debugPrint('BERHASIL LOAD RULE SUPABASE: ${data.length} rule');
-
       return data;
     } catch (e) {
       debugPrint('ERROR LOAD RULE SUPABASE: $e');
-      return loadRuleLocal();
+      return await loadRuleLocal();
     }
   }
 
@@ -359,9 +398,12 @@ class StorageService {
 
   static Future<List<Diagnosa>> loadRiwayat() async {
     final local = await loadRiwayatLocal();
-    if (local.isNotEmpty) return local;
 
-    return loadRiwayatFromSupabase();
+    if (local.isNotEmpty) {
+      return local;
+    }
+
+    return await loadRiwayatFromSupabase();
   }
 
   static Future<List<Diagnosa>> loadRiwayatLocal() async {
@@ -413,15 +455,12 @@ class StorageService {
       await _setLocal('riwayat', data.map((e) => e.toJson()).toList());
 
       debugPrint('BERHASIL LOAD RIWAYAT SUPABASE: ${data.length} data');
-
       return data;
     } catch (e) {
       debugPrint('ERROR LOAD RIWAYAT SUPABASE: $e');
-      return loadRiwayatLocal();
+      return await loadRiwayatLocal();
     }
   }
-
-  // ================= TAMBAH RIWAYAT =================
 
   static Future<void> tambahRiwayat(Diagnosa data) async {
     final sessionId = await SessionService.getSessionId();
@@ -457,8 +496,6 @@ class StorageService {
     }
   }
 
-  // ================= HAPUS SEMUA =================
-
   static Future<void> clearRiwayat() async {
     final sessionId = await SessionService.getSessionId();
 
@@ -477,17 +514,18 @@ class StorageService {
       debugPrint('ERROR CLEAR RIWAYAT SUPABASE: $e');
     }
   }
-  static Future<int> countAllRiwayatDiagnosa() async {
-  try {
-    final response = await _supabase
-        .from('riwayat_diagnosa')
-        .select('id')
-        .timeout(_supabaseTimeout);
 
-    return response.length;
-  } catch (e) {
-    debugPrint('ERROR COUNT ALL RIWAYAT DIAGNOSA: $e');
-    return 0;
+  static Future<int> countAllRiwayatDiagnosa() async {
+    try {
+      final response = await _supabase
+          .from('riwayat_diagnosa')
+          .select('id')
+          .timeout(_supabaseTimeout);
+
+      return response.length;
+    } catch (e) {
+      debugPrint('ERROR COUNT ALL RIWAYAT DIAGNOSA: $e');
+      return 0;
+    }
   }
-}
 }

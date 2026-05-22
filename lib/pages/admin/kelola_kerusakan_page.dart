@@ -584,19 +584,51 @@ class _KelolaKerusakanPageState extends State<KelolaKerusakanPage> {
     );
   }
 
-  Future<void> hapus(Kerusakan item) async {
-    final originalIndex = getOriginalIndex(item);
+Future<void> hapus(Kerusakan item) async {
+  final confirm = await showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text('Hapus Kerusakan'),
+        content: Text('Yakin ingin menghapus kerusakan "${item.nama}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Ya, Hapus'),
+          ),
+        ],
+      );
+    },
+  );
 
-    if (originalIndex == -1) return;
+  if (confirm != true) return;
 
-    final updated = List<Kerusakan>.from(DataManager.kerusakan);
-    updated.removeAt(originalIndex);
+  final originalIndex = getOriginalIndex(item);
+  if (originalIndex == -1) return;
 
-    await DataManager.saveKerusakan(updated);
+  final updated = List<Kerusakan>.from(DataManager.kerusakan);
+  updated.removeAt(originalIndex);
 
-    if (!mounted) return;
-    setState(() {});
-  }
+  await DataManager.saveKerusakan(updated);
+
+  if (!mounted) return;
+  setState(() {});
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Kerusakan berhasil dihapus'),
+      backgroundColor: Colors.green,
+    ),
+  );
+}
 
   Widget kategoriHeader(String kategori) {
     final color = kategoriColor(kategori);

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../data/data_manager.dart';
 import '../../models/kerusakan.dart';
 import 'detail_kerusakan_page.dart';
@@ -64,103 +65,138 @@ class _KerusakanPageState extends State<KerusakanPage> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      useSafeArea: true,
       builder: (_) {
-        return Container(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(28),
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 42,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE2E8F0),
-                  borderRadius: BorderRadius.circular(20),
+        return DraggableScrollableSheet(
+          initialChildSize: 0.58,
+minChildSize: 0.32,
+maxChildSize: 0.80,
+          expand: false,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(28),
                 ),
               ),
-              const SizedBox(height: 18),
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  "Pilih Kategori",
-                  style: TextStyle(
-                    color: Color(0xFF0F172A),
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+              child: SingleChildScrollView(
+                controller: scrollController,
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  12,
+                  20,
+                  MediaQuery.of(context).padding.bottom + 12,
                 ),
-              ),
-              const SizedBox(height: 14),
-              ...kategoriList.map((kategori) {
-                final isSelected = kategori == selectedKategori;
-                final color = getKategoriColor(kategori);
-
-                return InkWell(
-                  borderRadius: BorderRadius.circular(18),
-                  onTap: () {
-                    setState(() {
-                      selectedKategori = kategori;
-                    });
-                    Navigator.pop(context);
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 15,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? color.withOpacity(0.12)
-                          : const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: isSelected
-                            ? color.withOpacity(0.45)
-                            : const Color(0xFFE2E8F0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE2E8F0),
+                        borderRadius: BorderRadius.circular(20),
                       ),
                     ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            kategori,
-                            style: TextStyle(
-                              color: isSelected ? color : const Color(0xFF0F172A),
-                              fontSize: 16,
-                              fontWeight:
-                                  isSelected ? FontWeight.bold : FontWeight.w600,
+                    const SizedBox(height: 18),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        "Pilih Kategori",
+                        style: TextStyle(
+                          color: Color(0xFF0F172A),
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    ...kategoriList.map((kategori) {
+                      final isSelected = kategori == selectedKategori;
+                      final color = getKategoriColor(kategori);
+
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: () {
+                          setState(() {
+                            selectedKategori = kategori;
+                          });
+                          Navigator.pop(context);
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 15,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? color.withOpacity(0.12)
+                                : const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: isSelected
+                                  ? color.withOpacity(0.45)
+                                  : const Color(0xFFE2E8F0),
                             ),
                           ),
-                        ),
-                        if (isSelected)
-                          Icon(
-                            Icons.check_circle_rounded,
-                            color: color,
-                            size: 22,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  kategori,
+                                  style: TextStyle(
+                                    color: isSelected
+                                        ? color
+                                        : const Color(0xFF0F172A),
+                                    fontSize: 16,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              if (isSelected)
+                                Icon(
+                                  Icons.check_circle_rounded,
+                                  color: color,
+                                  size: 22,
+                                ),
+                            ],
                           ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
-            ],
-          ),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );
   }
 
+  String getDeskripsiPreview(Kerusakan item) {
+    final text = item.deskripsi
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .join(" ")
+        .replaceAll("\n", " ")
+        .replaceAll(RegExp(r'\s+'), " ");
+
+    if (text.isEmpty) return "Belum ada deskripsi.";
+
+    return text;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final List<Kerusakan> kerusakanList = List<Kerusakan>.from(DataManager.kerusakan);
+    final List<Kerusakan> kerusakanList =
+        List<Kerusakan>.from(DataManager.kerusakan);
 
     kerusakanList.sort((a, b) {
       final kategoriCompare =
@@ -243,7 +279,6 @@ class _KerusakanPageState extends State<KerusakanPage> {
               ],
             ),
           ),
-
           GestureDetector(
             onTap: () => showKategoriPicker(kategoriList),
             child: Container(
@@ -294,7 +329,6 @@ class _KerusakanPageState extends State<KerusakanPage> {
               ),
             ),
           ),
-
           Expanded(
             child: filteredList.isEmpty
                 ? const Center(
@@ -381,7 +415,7 @@ class _KerusakanPageState extends State<KerusakanPage> {
                                     ),
                                     const SizedBox(height: 12),
                                     Text(
-                                      item.deskripsi.join(". "),
+                                      getDeskripsiPreview(item),
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
